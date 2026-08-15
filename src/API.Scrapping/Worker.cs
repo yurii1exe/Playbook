@@ -1,4 +1,4 @@
-﻿using API.Scrapping.Core;
+﻿using Web.Domain.Core;
 using API.Scrapping.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,7 +15,6 @@ namespace API.Scrapping
         private readonly IScrapingService _scrapingService;
         private readonly IUIService _uiService;
         private readonly AppConfiguration _appConfig;
-        private readonly DatabaseConfiguration _databaseConfig;
         private int _attempts = 0;
 
         public Worker(
@@ -24,8 +23,7 @@ namespace API.Scrapping
             ILeagueService leagueService,
             IScrapingService scrapingService,
             IUIService uiService,
-            AppConfiguration appConfiguration,
-            DatabaseConfiguration databaseConfiguration
+            AppConfiguration appConfiguration
             )
         {
             _logger = logger;
@@ -34,8 +32,7 @@ namespace API.Scrapping
             _scrapingService = scrapingService;
             _uiService = uiService;
             _appConfig = appConfiguration;
-            _databaseConfig = databaseConfiguration;
-            
+
             _logger.LogInformation("Worker service initialized at {DateTime}", DateTime.Now);
         }
 
@@ -44,10 +41,11 @@ namespace API.Scrapping
             try
             {
                 _logger.LogInformation("Starting scraping process");
-                
-                // Set up database collections
-                _matchService.SetCollection(_databaseConfig.TeamsCollection);
-                
+
+                // The match collection is not set here: there is no single one.
+                // ProcessLeagueAsync points _matchService at the
+                // {country}_{league}_{season} collection for each league in turn.
+
                 // Get leagues to parse
                 var leaguesToParse = await _leagueService.GetLeaguesToParseAsync();
                 
@@ -80,12 +78,10 @@ namespace API.Scrapping
                 // Set the collection for this league
                 _matchService.SetCollection(collectionName);
                 
-                // Update the URL for this league
                 var league = await _leagueService.GetLeagueByIndexAsync(leagueId);
-                _appConfig.URL = league.FlashscoreLink;
-                
+
                 // Scrape matches for this league
-                var matches = await _scrapingService.ScrapeMatchesForLeagueAsync(leagueIndex, stoppingToken);
+                var matches = await _scrapingService.ScrapeMatchesForLeagueAsync(leagueIndex, league.FlashscoreLink, stoppingToken);
                 
                 // Save matches to database
                 await SaveMatchesAsync(matches, collectionName, stoppingToken);

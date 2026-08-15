@@ -1,6 +1,4 @@
-using API.Scrapping.Core;
 using PuppeteerSharp;
-using System.Text.RegularExpressions;
 using Web.Domain.Extentions;
 
 namespace Web.Domain.Entities

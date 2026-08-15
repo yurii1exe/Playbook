@@ -1,10 +1,4 @@
-﻿using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using MongoDB.Bson.Serialization.Attributes;
 
 namespace Web.Domain.Entities
 {
@@ -12,7 +6,6 @@ namespace Web.Domain.Entities
     {
         [BsonElement("name")]
         public string Name { get; set; }
-        //public string machineName { get; set; }
         [BsonElement("country")]
         public CountryObj Country { get; set; }
         [BsonElement("flashscoreLink")]
@@ -32,18 +25,38 @@ namespace Web.Domain.Entities
             public string Code { get; set; }
         }
 
+        /// <summary>
+        /// Turns the league's source URL into the league part of a collection
+        /// name, e.g. ".../football/spain/laliga/" becomes "_laliga".
+        /// </summary>
+        /// <remarks>
+        /// Derived from the URL path rather than by trimming a fixed number of
+        /// characters, so a change to the site's host or path prefix cannot
+        /// silently corrupt every collection name.
+        /// </remarks>
         public string GetFileName
         {
             get
             {
-                var url = FlashscoreLink.Remove(0, 36).Replace('/', '_').Replace('-', '_').Replace("results", "");
-                if (url.EndsWith('_'))
+                // Path only: "/football/spain/laliga/" -> ["football", "spain", "laliga"]
+                var segments = new Uri(FlashscoreLink).AbsolutePath
+                    .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                    .Where(segment => !segment.Equals("results", StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+                // Drop the leading sport and country segments; what remains
+                // identifies the league itself.
+                var leagueSegments = segments.Skip(2).ToArray();
+                if (leagueSegments.Length == 0)
                 {
-                    url = url.TrimEnd('_');
+                    leagueSegments = segments.Length > 0
+                        ? new[] { segments[^1] }
+                        : Array.Empty<string>();
                 }
-                //remove country name
-                url = url.Substring(url.IndexOf("_"));
-                return url;
+
+                // Leading underscore is intentional: callers concatenate this
+                // directly onto the country code.
+                return "_" + string.Join('_', leagueSegments).Replace('-', '_');
             }
         }
     }

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 
-namespace API.Scrapping.Core
+namespace Web.Domain.Core
 {
     public class AppConfiguration
     {
@@ -14,7 +14,6 @@ namespace API.Scrapping.Core
         public int OpenPageDelay { get; set; }
         public int WaitForLoad { get; set; }
         public bool HeadlessBrowser { get; set; }
-        public string URL { get; set; }
         public string YearToParse { get; set; }
 
     }

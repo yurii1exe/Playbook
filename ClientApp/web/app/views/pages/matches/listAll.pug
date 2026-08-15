@@ -4,7 +4,18 @@ block page-header
   h2=title
 
 block content
-  each match in matches 
-    div
-      a(href=`/matches/${match._id}`)= match.Title
-    
+  if collections && collections.length
+    form.mb-3(method="get" action="/matches")
+      label(for="collection") League-season
+      select#collection.form-select(name="collection" onchange="this.form.submit()")
+        each name in collections
+          option(value=name selected=(name === collection))= name
+      noscript
+        button(type="submit") Show
+
+  if !matches || !matches.length
+    p No matches found. Run the scraper first, or pick another league-season.
+  else
+    each match in matches
+      div
+        a(href=`/matches/${match._id}?collection=${collection || ''}`)= match.Title

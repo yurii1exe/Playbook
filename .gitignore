@@ -64,3 +64,9 @@ bin/
 obj/
 
 .angular/
+
+# Working notes — must never be committed
+PORTFOLIO-PLAN.md
+
+# Visual Studio per-user project settings
+*.user

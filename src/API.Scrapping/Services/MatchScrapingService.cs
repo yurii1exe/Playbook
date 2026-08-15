@@ -1,4 +1,4 @@
-using API.Scrapping.Core;
+using Web.Domain.Core;
 using Microsoft.Extensions.Logging;
 using PuppeteerSharp;
 using System.Globalization;
@@ -29,12 +29,12 @@ namespace API.Scrapping.Services
             _teamService.SetCollection(databaseConfiguration.TeamsCollection);
         }
 
-        public async Task<List<Match>> ScrapeMatchesForLeagueAsync(string leagueId, CancellationToken cancellationToken = default)
+        public async Task<List<Match>> ScrapeMatchesForLeagueAsync(string leagueId, string leagueUrl, CancellationToken cancellationToken = default)
         {
             var matches = new List<Match>();
             var page = await _browserService.GetPageAsync();
-            
-            await page.GoToAsync(_appConfig.URL);
+
+            await page.GoToAsync(leagueUrl);
 
             // Load all matches - updated selector for new structure
             while (await page.QuerySelectorAsync("[data-testid='event__more']") != null)
@@ -146,11 +146,11 @@ namespace API.Scrapping.Services
             // Parse goals - updated selector
             try
             {
-                var incidentsData = await match.PopulateData("[data-testid='smv__incidentsHeader']", page);
+                var incidentsData = await match.PopulateData("[data-testid='smv__incidentsHeader']", page, _logger);
                 if (incidentsData == null || incidentsData.Count == 0)
                 {
                     // Fallback to old selector
-                    incidentsData = await match.PopulateData("div.smv__incidentsHeader", page);
+                    incidentsData = await match.PopulateData("div.smv__incidentsHeader", page, _logger);
                 }
                 
                 if (incidentsData != null && incidentsData.Count > 0)
@@ -196,11 +196,11 @@ namespace API.Scrapping.Services
                 }
                 
                 // Updated selector for summary data
-                var summaryData = await match.PopulateData("[data-testid='smv__participantRow']", page);
+                var summaryData = await match.PopulateData("[data-testid='smv__participantRow']", page, _logger);
                 if (summaryData == null || summaryData.Count == 0)
                 {
                     // Fallback to old selector
-                    summaryData = await match.PopulateData("div.smv__participantRow", page);
+                    summaryData = await match.PopulateData("div.smv__participantRow", page, _logger);
                 }
                 
                 if (summaryData != null)
@@ -217,11 +217,11 @@ namespace API.Scrapping.Services
             // Parse stats per half - updated selector
             try
             {
-                var statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/0", "[data-testid='stat__row']", page, _appConfig);
+                var statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/0", "[data-testid='stat__row']", page, _appConfig, _logger);
                 if (statsArr == null || statsArr.Length < 2)
                 {
                     // Fallback to old selector
-                    statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/0", "div.stat__row", page, _appConfig);
+                    statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/0", "div.stat__row", page, _appConfig, _logger);
                 }
                 
                 if (statsArr != null && statsArr.Length >= 2)
@@ -230,11 +230,11 @@ namespace API.Scrapping.Services
                     match.TGuest.Stats0 = statsArr[1];
                 }
 
-                statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/1", "[data-testid='stat__row']", page, _appConfig);
+                statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/1", "[data-testid='stat__row']", page, _appConfig, _logger);
                 if (statsArr == null || statsArr.Length < 2)
                 {
                     // Fallback to old selector
-                    statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/1", "div.stat__row", page, _appConfig);
+                    statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/1", "div.stat__row", page, _appConfig, _logger);
                 }
                 
                 if (statsArr != null && statsArr.Length >= 2)
@@ -243,11 +243,11 @@ namespace API.Scrapping.Services
                     match.TGuest.Stats1 = statsArr[1];
                 }
                 
-                statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/2", "[data-testid='stat__row']", page, _appConfig);
+                statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/2", "[data-testid='stat__row']", page, _appConfig, _logger);
                 if (statsArr == null || statsArr.Length < 2)
                 {
                     // Fallback to old selector
-                    statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/2", "div.stat__row", page, _appConfig);
+                    statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/2", "div.stat__row", page, _appConfig, _logger);
                 }
                 
                 if (statsArr != null && statsArr.Length >= 2)
@@ -270,11 +270,11 @@ namespace API.Scrapping.Services
                 await Task.Delay(_appConfig.WaitForLoad, cancellationToken);
                 
                 // Updated selector for lineups
-                var lf = await match.PopulateData<Team>(matchUrl + "lineups", "[data-testid='lf__header']", page, _appConfig);
+                var lf = await match.PopulateData<Team>(matchUrl + "lineups", "[data-testid='lf__header']", page, _appConfig, _logger);
                 if (lf == null || lf.Length < 2)
                 {
                     // Fallback to old selector
-                    lf = await match.PopulateData<Team>(matchUrl + "lineups", "div.lf__header", page, _appConfig);
+                    lf = await match.PopulateData<Team>(matchUrl + "lineups", "div.lf__header", page, _appConfig, _logger);
                 }
 
                 // Log detailed info about the lf array

@@ -1,4 +1,4 @@
-using API.Scrapping.Core;
+using Web.Domain.Core;
 using Microsoft.Extensions.Logging;
 using PuppeteerSharp;
 using Web.Domain.IServices;

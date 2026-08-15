@@ -6,4 +6,4 @@ const TeamsSchema = new Schema ({
     flashscoreLink: { type: String }
 })
 
-module.exports = mongoose.model('Team', MatchesSchema);
+module.exports = mongoose.model('Team', TeamsSchema);

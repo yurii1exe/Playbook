@@ -7,11 +7,15 @@ module.exports = {
      * @param {*} res 
      */
     async listAllMatches(req, res) {
-        const matches = await calcCore.matches.getAllMatchesList();
+        const collections = await calcCore.matches.listMatchCollections();
+        const collection = req.query.collection;
+        const matches = await calcCore.matches.getAllMatchesList(collection);
 
         res.render('pages/matches/listAll', {
             title: 'Matches',
-            matches 
+            matches,
+            collections,
+            collection
         });
 
     },
@@ -23,11 +27,20 @@ module.exports = {
      */
     async showSingleMatchPage(req, res) {
         const matchId = req.params.id;
-        const match = await calcCore.matches.getMatchById(matchId);
+        const match = await calcCore.matches.getMatchById(matchId, req.query.collection);
+
+        if (!match) {
+            return res.status(404).render('pages/matches/listAll', {
+                title: 'Match not found',
+                matches: [],
+                collections: await calcCore.matches.listMatchCollections(),
+                collection: req.query.collection
+            });
+        }
 
         res.render('pages/matches/matchPage', {
             title: match.Title,
-            match 
+            match
         });
     }
 }

@@ -4,7 +4,12 @@ namespace Web.Domain.IServices
 {
     public interface IScrapingService
     {
-        Task<List<Match>> ScrapeMatchesForLeagueAsync(string leagueId, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Scrapes every finished match listed at <paramref name="leagueUrl"/>.
+        /// </summary>
+        /// <param name="leagueId">Index of the league being processed, for logging.</param>
+        /// <param name="leagueUrl">Results page to start from.</param>
+        Task<List<Match>> ScrapeMatchesForLeagueAsync(string leagueId, string leagueUrl, CancellationToken cancellationToken = default);
         Task<Match> ScrapeMatchAsync(string matchId, CancellationToken cancellationToken = default);
     }
 } 

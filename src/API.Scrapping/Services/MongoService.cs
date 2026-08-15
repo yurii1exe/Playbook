@@ -1,5 +1,5 @@
-﻿using API.Scrapping.Core;
-using Microsoft.Extensions.Options;
+﻿using Web.Domain.Core;
+using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Web.Domain.Entities;
 using Web.Domain.IServices;
@@ -12,7 +12,8 @@ namespace API.Scrapping.Services
         private IMongoCollection<T> _mongoCollection;
 
         public MongoService(
-            DatabaseConfiguration itemStoreDatabaseSettings)
+            DatabaseConfiguration itemStoreDatabaseSettings,
+            ILogger<MongoService<T>> logger)
         {
             var client = new MongoClient(
                 itemStoreDatabaseSettings.ConnectionString);
@@ -20,7 +21,14 @@ namespace API.Scrapping.Services
             _db = client.GetDatabase(
                 itemStoreDatabaseSettings.DatabaseName);
 
-            client.ListDatabaseNames(); 
+            // Fail fast: the driver connects lazily, so without this a bad
+            // connection string would not surface until the first write —
+            // potentially an hour into a scraping run.
+            var databaseNames = client.ListDatabaseNames().ToList();
+            logger.LogInformation(
+                "Connected to MongoDB database {DatabaseName} ({DatabaseCount} databases visible)",
+                itemStoreDatabaseSettings.DatabaseName,
+                databaseNames.Count);
         }
 
         public void SetCollection(string collection)

@@ -1,9 +1,7 @@
-﻿using API.Scrapping.Core;
-using MongoDB.Bson.Serialization.Attributes;
+﻿using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using PuppeteerSharp;
-using System.ComponentModel.DataAnnotations;
-using System.Text.RegularExpressions;
+using Web.Domain.Core;
 using Web.Domain.Extentions;
 using Web.Domain.IEntities;
 
@@ -19,7 +17,13 @@ namespace Web.Domain.Entities
         public List<string> Summary { get; set; } = new List<string>();
 
 
-        public async Task<List<string>> PopulateData(string querySelector, IPage page2)
+        /// <summary>
+        /// Reads the outer text of every element matching <paramref name="querySelector"/>.
+        /// Returns an empty list if the selector matches nothing or the read
+        /// fails, so that one changed class name costs a single section rather
+        /// than the whole match.
+        /// </summary>
+        public async Task<List<string>> PopulateData(string querySelector, IPage page2, ILogger logger = null)
         {
             try
             {
@@ -46,15 +50,18 @@ namespace Web.Domain.Entities
             }
             catch (Exception ex)
             {
-                // Return empty list on error to prevent crashes
+                logger?.LogWarning(ex, "Failed to read elements for selector {QuerySelector} on match {MatchId}; continuing without this section", querySelector, Id);
                 return new List<string>();
             }
         }
 
         /// <summary>
-        /// assign data to model
+        /// Loads <paramref name="url"/> and deserialises the home and guest
+        /// columns of the matching rows into <typeparamref name="T"/>.
+        /// Returns an empty array rather than throwing, for the same reason as
+        /// the overload above.
         /// </summary>
-        public async Task<T[]> PopulateData<T>(string url, string querySelector, IPage page2, AppConfiguration consts) where T : class
+        public async Task<T[]> PopulateData<T>(string url, string querySelector, IPage page2, AppConfiguration consts, ILogger logger = null) where T : class
         {
             try
             {
@@ -120,8 +127,8 @@ namespace Web.Domain.Entities
             }
             catch (Exception ex)
             {
-                // Return empty array on error to prevent crashes
-                return new T[0];
+                logger?.LogWarning(ex, "Failed to parse {ResultType} from {Url} using selector {QuerySelector} on match {MatchId}; continuing without this section", typeof(T).Name, url, querySelector, Id);
+                return Array.Empty<T>();
             }
         }
     }

@@ -1,4 +1,4 @@
-﻿using API.Scrapping.Core;
+﻿using Web.Domain.Core;
 using API.Scrapping.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
