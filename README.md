@@ -17,6 +17,17 @@ Here the source happens to be a JavaScript-rendered football results site, which
 is a convenient stand-in: it is public, it genuinely changes its markup between
 seasons, and nobody had to sign an NDA for me to show you the code.
 
+![The worker seeding leagues, driving Chrome and writing 11 matches](docs/playbook-demo.gif)
+
+*A real run against the live source on 16 August 2026. The worker seeds 16
+leagues from `Data/leagues.json` into an empty MongoDB, MLS and season 2026 are
+typed at the prompt, headless Chrome is driven through the league page, and 30
+matches are found on it. The 19 fixtures that have not been played yet are
+rejected from their header alone — those are the yellow lines — and the 11
+finished matches are parsed and written to `us_mls_2026`. Six minutes of real
+running time, compressed to 25 seconds: the opening plays at 4x and the parse
+loop at 30x.*
+
 ## The problem
 
 Match statistics are published as rendered HTML, not as an API. The pages load
@@ -34,8 +45,6 @@ first building the dataset yourself.
 
 A .NET background worker that drives a real Chrome instance through
 PuppeteerSharp.
-
-![Console output from a real run](docs/init.png)
 
 - **Seeded from configuration, not hardcoded.** 16 leagues across 14 countries in
   `Data/leagues.json`, loaded into MongoDB on first run. The leagues to parse and
@@ -96,10 +105,9 @@ flowchart TD
 
 ## Result
 
-Runs unattended across a full season for any of the 16 configured leagues,
-resumable after interruption, and produces a dataset that answers questions the
-source site cannot be asked directly. The aggregation output is the actual
-deliverable.
+Runs unattended for any of the 16 configured leagues, resumable after
+interruption, and produces a dataset that answers questions the source site
+cannot be asked directly. The aggregation output is the actual deliverable.
 
 ## Stack
 
@@ -112,9 +120,12 @@ Node.js · Express · Pug
 Requires the .NET 8 SDK, a local Chrome, and MongoDB on `localhost:27017`.
 
 ```bash
-cd src
-dotnet run --project API.Scrapping
+cd src/API.Scrapping
+dotnet run
 ```
+
+Run it from the project directory: `appsettings.json` is read relative to the
+working directory.
 
 On first run the leagues are seeded from `Data/leagues.json`. The console asks
 which leagues and which season to parse.
@@ -144,10 +155,21 @@ collection the scraper populated first.
 
 ## Honest limitations
 
-- **There are no tests.** For a project whose whole argument is defensive parsing
-  of a source that changes, this is the weakest point. The right fix is small —
-  save a few real HTML fixtures and unit-test the parsing logic against them with
-  no browser involved — and it is the next thing I would do to this repo.
+- **The tests cover the parsing, not the browser.** 24 tests pin down the row
+  parser and the league model against real row shapes, with no browser involved.
+  Everything that needs a page — pagination, sub-page navigation, the four passes
+  — is only exercised by running it.
+- **Two of the eighteen statistics no longer arrive.** Matches scraped in August
+  2026 carry 16 of the 18; nothing in the statistics table maps onto `Attacks` or
+  `DangerousAttacks` any more, so both land as zero. The derived ratios in
+  `aggregation_firsthalf.js` divide by those averages, so that pipeline fails on
+  a dataset collected now; `aggregation_home.js` and `aggregation_guest.js`,
+  which stop at totals and averages, run.
+- **The season chosen at startup names the collection, not the URL.** A run
+  parses whatever the league's own page currently lists — recent results and
+  upcoming fixtures — and stores the finished ones under
+  `{country}_{league}_{season}`. Parsing a past season means pointing
+  `flashscoreLink` at that season's results page.
 - **The reader UI is roughly a third finished.** It lists leagues and matches and
   renders a single match. There is no styling of its own (`main.css` is empty),
   and no charting. The aggregation pipelines are run directly against MongoDB,
@@ -160,8 +182,6 @@ collection the scraper populated first.
   safe for the current single-threaded run, and would break silently the first
   time two leagues were parsed concurrently. Returning a per-call
   `IMongoCollection<T>` handle is the fix.
-- **`.git` is ~14 MB for a 65-file repo**, because build artefacts were committed
-  early on and later removed. Rewriting that history costs more than it is worth.
 
 ## Note
 
