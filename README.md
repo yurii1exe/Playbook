@@ -37,9 +37,9 @@ disappears. Class names change between seasons. Finished, scheduled and abandone
 matches look nearly identical in the markup, and only one of the three is worth
 storing.
 
-So there is no way to ask a question like *"across a full season, how do
-first-half dangerous attacks relate to first-half goals for each team?"* without
-first building the dataset yourself.
+So there is no way to ask a question like *"across a full season, how do a
+team's first-half shots on target and expected goals turn into first-half
+goals?"* without first building the dataset yourself.
 
 ## What I built
 
@@ -51,21 +51,23 @@ PuppeteerSharp.
   the season are chosen at startup.
 - **Pagination is driven, not guessed.** The worker clicks the "show more"
   control until it is gone, then collects every match link on the page.
-- **Only finished matches are stored.** The status is read from the match header
-  before anything else is parsed, so a scheduled or abandoned fixture costs one
-  page load instead of five.
+- **Only finished matches are stored.** The match header is read before anything
+  else and decides twice over: an unplayed fixture publishes fewer than the six
+  fields a played one does and is rejected on the header's shape, and a header
+  that has the six has to say FINISHED. Either way a scheduled or abandoned
+  fixture costs one page load instead of five.
 - **Each match is parsed in four passes** — header, goal incidents by half,
-  statistics, lineups — across the sub-pages the site splits them over. Each pass
-  captures 18 statistics per team (possession, expected goals, attacks, dangerous
-  attacks, goal attempts, shots on and off target, blocked shots, passes
-  attempted and completed, corners, offsides, throw-ins, free kicks, fouls,
-  cards, tackles, saves), for the full match and for each half separately:
-  **108 data points per match** — 18 stats × 2 teams × 3 periods.
-- **Every pass fails independently.** Selectors are tried newest-first
-  (`[data-testid='stat__row']`) with a fallback to the previous season's markup
-  (`div.stat__row`), and each section is wrapped so that a changed class name
-  costs you the lineups rather than the whole match. This is the part that
-  determines whether a scraper survives to a second season.
+  statistics, lineups — across the sub-pages the site splits them over. The
+  statistics pass captures the 16 statistics the source publishes per team
+  (possession, expected goals, goal attempts, shots on and off target, blocked
+  shots, passes attempted and completed, corners, offsides, throw-ins, free
+  kicks, fouls, yellow cards, tackles, goalkeeper saves), for the full match and
+  for each half separately: **96 data points per match** — 16 statistics ×
+  2 teams × 3 periods.
+- **Every pass fails independently.** A section that cannot be read is logged and
+  skipped, so a changed class name costs the lineups rather than the whole match.
+  The selectors themselves are chains, which is the part that decides whether a
+  scraper survives to a second season — see below.
 - **Writes are idempotent.** Every match is checked for existence before insert,
   so an interrupted run is resumed by re-running it. Failures count against a
   budget of five, after which the process stops rather than hammering the source.
@@ -75,8 +77,8 @@ PuppeteerSharp.
 
 Then a set of MongoDB aggregation pipelines roll per-match documents up into
 per-team season figures: **34 totals and averages**, and **18 derived ratios** on
-top of them — dangerous attacks as a share of all attacks, shots on target per
-dangerous attack, passes per attack, minutes per dangerous attack, and so on.
+top of them — shots on target per goal attempt, first-half goals per shot on
+target, minutes of a half per goal attempt, and so on.
 
 | Pipeline | Groups by | Stats period |
 |---|---|---|
@@ -86,6 +88,29 @@ dangerous attack, passes per attack, minutes per dangerous attack, and so on.
 
 A small Express + Pug application reads the same database and renders the leagues
 and matches for browsing.
+
+## Selectors that outlive the markup
+
+Every selector the scraper uses is a chain, tried in order, and the chain is what
+carries a run across a change of markup generation. Counting what each link of
+two of those chains matched on the live source on 16 August 2026:
+
+| Looking for | Selector | Elements matched |
+|---|---|---|
+| statistics rows | `[data-testid='wcl-statistics']` | **41** |
+| | `[data-testid='stat__row']` | 0 |
+| | `div.stat__row` | 0 |
+| match rows | `[data-testid='event__match']` | 0 |
+| | `div.event__match` | **109** |
+
+The two selectors carrying the site sit at opposite ends of their chains. The
+statistics table is on the newest markup; the match list is still on the oldest,
+the one that predates the `data-testid` attributes entirely. A scraper pinned to
+either generation alone comes back empty from one of the two pages, which is why
+every selector here keeps its predecessors instead of being replaced by the one
+that works today. What the chain buys is tolerance of renamed markup rather than
+immunity to it: a redesign that moves a section somewhere else on the page is
+answered by a new selector at the front of its chain.
 
 ## How it fits together
 
@@ -107,7 +132,9 @@ flowchart TD
 
 Runs unattended for any of the 16 configured leagues, resumable after
 interruption, and produces a dataset that answers questions the source site
-cannot be asked directly. The aggregation output is the actual deliverable.
+cannot be asked directly: one row per team per season, carrying its first-half
+shots on target, expected goals and goals alongside the ratios between them. The
+aggregation output is the actual deliverable.
 
 ## Stack
 
@@ -153,35 +180,29 @@ The match pages read one league-season collection at a time. Pick it with
 `ClientApp/config/index.js`; with neither set it falls back to whichever
 collection the scraper populated first.
 
-## Honest limitations
+## Operating notes
 
-- **The tests cover the parsing, not the browser.** 24 tests pin down the row
-  parser and the league model against real row shapes, with no browser involved.
-  Everything that needs a page — pagination, sub-page navigation, the four passes
-  — is only exercised by running it.
-- **Two of the eighteen statistics no longer arrive.** Matches scraped in August
-  2026 carry 16 of the 18; nothing in the statistics table maps onto `Attacks` or
-  `DangerousAttacks` any more, so both land as zero. The derived ratios in
-  `aggregation_firsthalf.js` divide by those averages, so that pipeline fails on
-  a dataset collected now; `aggregation_home.js` and `aggregation_guest.js`,
-  which stop at totals and averages, run.
+- **Tested without a browser.** 41 tests cover the row parser against rows
+  captured from real match pages, the collection naming, and the grouping and
+  divisors of the aggregation pipelines. Pagination, sub-page navigation and the
+  four passes per match are exercised by running the worker.
+- **Source drift.** The statistics table was redesigned in 2026; the parser maps
+  the 16 statistics now published. Attacks and dangerous attacks are no longer
+  published, so the nine first-half ratios built on them return null and the rest
+  of the table is computed from what arrives.
 - **The season chosen at startup names the collection, not the URL.** A run
   parses whatever the league's own page currently lists — recent results and
   upcoming fixtures — and stores the finished ones under
   `{country}_{league}_{season}`. Parsing a past season means pointing
   `flashscoreLink` at that season's results page.
-- **The reader UI is roughly a third finished.** It lists leagues and matches and
-  renders a single match. There is no styling of its own (`main.css` is empty),
-  and no charting. The aggregation pipelines are run directly against MongoDB,
-  not through the UI.
-- **The scraper is coupled to one source's markup.** The selector fallbacks buy
-  it a season or so of tolerance, not immunity. A structural redesign upstream
-  needs new selectors.
-- **`MongoService<T>` is a singleton with mutable per-operation state.**
-  `SetCollection` reassigns the collection handle on a shared instance. That is
-  safe for the current single-threaded run, and would break silently the first
-  time two leagues were parsed concurrently. Returning a per-call
-  `IMongoCollection<T>` handle is the fix.
+- **The reader UI lists and renders.** It lists the leagues, lists the matches in
+  a league-season collection and renders a single match, on Bootstrap's
+  stylesheet — `main.css` is a placeholder. The aggregation pipelines are run
+  against MongoDB directly.
+- **`MongoService<T>` holds one collection handle at a time.** `SetCollection`
+  assigns it on the shared instance, which is what the worker's single-threaded
+  run needs. Parsing two leagues concurrently takes a per-call
+  `IMongoCollection<T>` handle instead.
 
 ## Note
 
