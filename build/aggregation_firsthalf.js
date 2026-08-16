@@ -148,6 +148,32 @@
       },
     },
   },
+  // Null-safe denominators. A statistic the source stops publishing arrives
+  // as zero, and a zero divisor aborts the whole aggregation, so every ratio
+  // below divides by one of these instead: zero maps to null, which makes that
+  // one ratio come back empty and lets the rest of the table complete.
+  {
+    $addFields: {
+      attacksTotalOrNull: {
+        $cond: [{ $eq: ["$attacksTotal", 0] }, null, "$attacksTotal"],
+      },
+      attacksAvgOrNull: {
+        $cond: [{ $eq: ["$attacksAvg", 0] }, null, "$attacksAvg"],
+      },
+      dangerousAttacksAvgOrNull: {
+        $cond: [{ $eq: ["$dangerousAttacksAvg", 0] }, null, "$dangerousAttacksAvg"],
+      },
+      goalAttemptsAvgOrNull: {
+        $cond: [{ $eq: ["$goalAttemptsAvg", 0] }, null, "$goalAttemptsAvg"],
+      },
+      goalsFirstHalfTotalOrNull: {
+        $cond: [{ $eq: ["$goalsFirstHalfTotal", 0] }, null, "$goalsFirstHalfTotal"],
+      },
+      shotsOnGoalTotalOrNull: {
+        $cond: [{ $eq: ["$shotsOnGoalTotal", 0] }, null, "$shotsOnGoalTotal"],
+      },
+    },
+  },
   /// result table
   {
     $project: {
@@ -190,61 +216,67 @@
       converted_Dangerous: {
         $divide: [
           "$dangerousAttacksTotal",
-          "$attacksTotal",
+          "$attacksTotalOrNull",
         ],
       },
       goalAtt_DangAtt: {
         $divide: [
           "$goalAttemptsAvg",
-          "$dangerousAttacksAvg",
+          "$dangerousAttacksAvgOrNull",
         ],
       },
       shoto_goalAttempts: {
         $divide: [
           "$shotsOnGoalAvg",
-          "$goalAttemptsAvg",
+          "$goalAttemptsAvgOrNull",
         ],
       },
       shotongoal_dangatt: {
         $divide: [
           "$shotsOnGoalAvg",
-          "$dangerousAttacksAvg",
+          "$dangerousAttacksAvgOrNull",
         ],
       },
       min45_Dangatt: {
         $divide: [
           45,
-          "$dangerousAttacksAvg"
+          "$dangerousAttacksAvgOrNull"
         ],
       },
       failedAttEqatt_Dangatt: {
         $divide: [
           "$attacksAvg",
-          "$dangerousAttacksAvg",
+          "$dangerousAttacksAvgOrNull",
         ],
       },
       convertedDangAtt_goalattempt: {
         $divide: [
           "$dangerousAttacksAvg",
-          "$goalAttemptsAvg",
+          "$goalAttemptsAvgOrNull",
         ],
       },
       passes_attacks: {
         $divide: [
           "$completedPassesAvg",
-          "$attacksAvg",
+          "$attacksAvgOrNull",
         ],
       },
       LowPercFailedAtt_HighPercSHots_DangAtt: {
         $divide: [
           "$failedAttEqatt_Dangatt",
-          "$shotongoal_dangatt",
+          {
+            $cond: [
+              { $eq: ["$shotongoal_dangatt", 0] },
+              null,
+              "$shotongoal_dangatt",
+            ],
+          },
         ],
       },
       shots_time: {
         $divide: [
           45,
-          "$goalAttemptsAvg"
+          "$goalAttemptsAvgOrNull"
         ],
       },
       gksaves_shoton_goals: {
@@ -256,37 +288,37 @@
       possesion_att: {
         $divide: [
           "$ballPossessionAvg",
-          "$attacksAvg",
+          "$attacksAvgOrNull",
         ],
       },
       passes_attacks1: {
-        $divide: ["$totalPassesAvg", "$attacksAvg"],
+        $divide: ["$totalPassesAvg", "$attacksAvgOrNull"],
       },
       passes_attacks2: {
-        $divide: ["$completedPassesAvg", "$attacksAvg"],
+        $divide: ["$completedPassesAvg", "$attacksAvgOrNull"],
       },
       moreshots_moregoals: {
         $divide: [
           "$goalAttemptsTotal",
-          "$goalsFirstHalfTotal",
+          "$goalsFirstHalfTotalOrNull",
         ],
       },
       convDangatt_dangAttshots: {
         $divide: [
           "$dangerousAttacksAvg",
-          "$goalAttemptsAvg",
+          "$goalAttemptsAvgOrNull",
         ],
       },
       convAtt_att_shots: {
         $divide: [
           "$attacksAvg",
-          "$goalAttemptsAvg",
+          "$goalAttemptsAvgOrNull",
         ],
       },
       shoton_goals1H: {
         $divide: [
           "$goalsFirstHalfTotal",
-          "$shotsOnGoalTotal",
+          "$shotsOnGoalTotalOrNull",
         ],
       },
     },
