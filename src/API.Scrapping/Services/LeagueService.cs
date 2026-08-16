@@ -83,13 +83,9 @@ namespace API.Scrapping.Services
                 }
             }
 
-            if (string.IsNullOrEmpty(year) && league.Country.Name != "MLS")
+            if (string.IsNullOrEmpty(year))
             {
-                year = (DateTime.Now.Year - 1).ToString() + "-" + DateTime.Now.Year.ToString();
-            }
-            else if (league.Country.Name == "MLS")
-            {
-                year = DateTime.Now.Year.ToString();
+                year = league.DefaultSeason(DateTime.Now);
             }
 
             return league.Country.Code + league.GetFileName + "_" + year;

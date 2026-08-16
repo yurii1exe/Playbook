@@ -31,6 +31,51 @@ namespace Web.Domain.Tests
             Assert.Equal(current.GetFileName, moved.GetFileName);
         }
 
+        /// <summary>
+        /// Pressing enter at the season prompt names the collection after the
+        /// current season, and the shape of a season name depends on the
+        /// competition.
+        /// </summary>
+        [Fact]
+        public void Names_the_current_season_by_the_two_years_a_european_league_spans()
+        {
+            var league = new League
+            {
+                Name = "LaLiga",
+                Country = new League.CountryObj { Name = "spain", Code = "es" }
+            };
+
+            Assert.Equal("2025-2026", league.DefaultSeason(new DateTime(2026, 8, 16)));
+        }
+
+        [Fact]
+        public void Names_the_current_season_of_a_single_year_competition_by_that_year()
+        {
+            // MLS runs inside one calendar year. Its country is the United
+            // States, so a check against the country name cannot see this.
+            var league = new League
+            {
+                Name = "MLS",
+                Country = new League.CountryObj { Name = "united states of america", Code = "us" }
+            };
+
+            Assert.True(league.HasSingleYearSeason);
+            Assert.Equal("2026", league.DefaultSeason(new DateTime(2026, 8, 16)));
+        }
+
+        [Fact]
+        public void Treats_every_other_competition_as_spanning_two_years()
+        {
+            var league = new League
+            {
+                Name = "Premier League",
+                Country = new League.CountryObj { Name = "england", Code = "gb-eng" }
+            };
+
+            Assert.False(league.HasSingleYearSeason);
+            Assert.Equal("2022-2023", league.DefaultSeason(new DateTime(2023, 1, 31)));
+        }
+
         [Fact]
         public void Falls_back_to_the_last_segment_when_the_path_is_short()
         {

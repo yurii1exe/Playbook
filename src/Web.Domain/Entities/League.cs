@@ -26,6 +26,28 @@ namespace Web.Domain.Entities
         }
 
         /// <summary>
+        /// True for a competition whose season is named by a single calendar
+        /// year rather than by the two years it spans.
+        /// </summary>
+        public bool HasSingleYearSeason =>
+            string.Equals(Name, "MLS", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// The season a run falls back to when no year is typed at the prompt.
+        /// </summary>
+        /// <remarks>
+        /// The distinction is a property of the competition, not of its
+        /// country: MLS runs March to December and names its season "2026",
+        /// while the European leagues span two calendar years and name it
+        /// "2025-2026". The season names the collection, so getting it wrong
+        /// splits one season across two of them.
+        /// </remarks>
+        public string DefaultSeason(DateTime today) =>
+            HasSingleYearSeason
+                ? today.Year.ToString()
+                : (today.Year - 1) + "-" + today.Year;
+
+        /// <summary>
         /// Turns the league's source URL into the league part of a collection
         /// name, e.g. ".../football/spain/laliga/" becomes "_laliga".
         /// </summary>
