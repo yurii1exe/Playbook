@@ -13,4 +13,4 @@ const LeaguesSchema = new Schema ({
     whoScoredLink: { type: String }
 })
 
-module.exports = mongoose.model('League', LeaguesSchema);
+module.exports = mongoose.model('League', LeaguesSchema, 'Leagues');
