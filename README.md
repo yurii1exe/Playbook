@@ -21,12 +21,12 @@ seasons, and nobody had to sign an NDA for me to show you the code.
 
 *A real run against the live source on 16 August 2026. The worker seeds 16
 leagues from `Data/leagues.json` into an empty MongoDB, MLS and season 2026 are
-typed at the prompt, headless Chrome is driven through the league page, and 30
-matches are found on it. The 19 fixtures that have not been played yet are
-rejected from their header alone — those are the yellow lines — and the 11
-finished matches are parsed and written to `us_mls_2026`. Six minutes of real
-running time, compressed to 25 seconds: the opening plays at 4x and the parse
-loop at 30x.*
+typed at the prompt, Chrome is driven through the league page, and 30 matches
+are found on it. The 19 fixtures that have not been played yet are rejected
+from their header alone — those are the yellow lines — and the 11 finished
+matches are parsed and written to `us_mls_2026`. Six minutes of real running
+time, compressed to 25 seconds: the opening plays at 4x and the parse loop at
+30x.*
 
 ## The problem
 
@@ -135,7 +135,7 @@ Configuration lives in `src/API.Scrapping/appsettings.json`:
 | Setting | Meaning |
 |---|---|
 | `BrowserPath` / `BrowserPathMac` | Path to a Chrome executable; the platform is detected at runtime |
-| `HeadlessBrowser` | Run Chrome without a window |
+| `HeadlessBrowser` | Run Chrome without a window; ships `false`, so the browser is visible while it works |
 | `OpenPageDelay` / `WaitForLoad` | Politeness delays, in milliseconds |
 | `YearToParse` | Season, e.g. `2022-2023`; blank prompts at startup |
 | `PlaybookDatabase` | MongoDB connection string and database name |
