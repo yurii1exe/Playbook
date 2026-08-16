@@ -76,42 +76,23 @@ namespace Web.Domain.Entities
                     return new T[0];
                 }
                 
-                Dictionary<string, string> homeData = new Dictionary<string, string>();
-                Dictionary<string, string> guestData = new Dictionary<string, string>();
+                var rowTexts = new List<string>();
 
                 foreach (var item in matchData)
                 {
                     if (item == null) continue;
-                    
-                    var matchContent = (await item.GetPropertyAsync("outerText")).Convert();
-                    if (string.IsNullOrWhiteSpace(matchContent) || !matchContent.Contains(','))
-                    {
-                        continue;
-                    }
-                    
-                    var rowSplit = matchContent.Replace("%", "").Split(',');
-                    if (rowSplit.Length < 3)
-                    {
-                        continue;
-                    }
-                    
-                    var colName = rowSplit[1].Replace(" ", "").Trim();
-                    if (string.IsNullOrWhiteSpace(colName))
-                    {
-                        continue;
-                    }
 
-                    // Ensure we don't add duplicate keys
-                    if (!homeData.ContainsKey(colName))
+                    var matchContent = (await item.GetPropertyAsync("outerText")).Convert();
+                    if (!string.IsNullOrWhiteSpace(matchContent))
                     {
-                        homeData.Add(colName, rowSplit[0].Trim());
-                    }
-                    if (!guestData.ContainsKey(colName))
-                    {
-                        guestData.Add(colName, rowSplit[2].Trim());
+                        rowTexts.Add(matchContent);
                     }
                 }
-                
+
+                // Row text to keyed columns is pure string work, so it lives in
+                // StatRowParser where it can be tested without a browser.
+                var (homeData, guestData) = StatRowParser.ToColumns(rowTexts);
+
                 if (homeData.Count == 0 || guestData.Count == 0)
                 {
                     return new T[0];

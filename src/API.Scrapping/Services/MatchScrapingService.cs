@@ -10,6 +10,16 @@ namespace API.Scrapping.Services
 {
     public class MatchScrapingService : IScrapingService
     {
+        // Every selector below is a fallback chain, newest markup first. The
+        // source has renamed these once already: the data-testid attributes it
+        // used in 2023-2025 were dropped in 2026 in favour of the class names it
+        // had before that, so both layers stay in place.
+        private const string MatchRowSelector = "[data-testid='event__match'], div.event__match";
+        private const string ShowMoreSelector = "[data-testid='event__more'], a.event__more";
+        private const string StatRowSelector = "[data-testid='wcl-statistics'], [data-testid='stat__row'], div.stat__row";
+        private const string FormationSelector = "div.lf__formationHeader, [data-testid='lf__header'], div.lf__header";
+        private const string HalfHeaderSelector = "[data-testid='wcl-headerSection-text']";
+
         private readonly ILogger<MatchScrapingService> _logger;
         private readonly AppConfiguration _appConfig;
         private readonly IBrowserService _browserService;
@@ -36,15 +46,26 @@ namespace API.Scrapping.Services
 
             await page.GoToAsync(leagueUrl);
 
-            // Load all matches - updated selector for new structure
-            while (await page.QuerySelectorAsync("[data-testid='event__more']") != null)
+            // The list is rendered client-side after the load event, so wait for
+            // the first row instead of racing it.
+            try
             {
-                await page.EvaluateExpressionAsync("document.querySelector('[data-testid=\"event__more\"]')?.click()");
+                await page.WaitForSelectorAsync(MatchRowSelector,
+                    new WaitForSelectorOptions { Timeout = _appConfig.WaitForLoad * 4 });
+            }
+            catch (WaitTaskTimeoutException)
+            {
+                _logger.LogWarning("No match rows appeared on {LeagueUrl} within {Timeout}ms", leagueUrl, _appConfig.WaitForLoad * 4);
+            }
+
+            // Load all matches
+            while (await page.QuerySelectorAsync(ShowMoreSelector) != null)
+            {
+                await page.EvaluateFunctionAsync("selector => document.querySelector(selector)?.click()", ShowMoreSelector);
                 await Task.Delay(_appConfig.WaitForLoad, cancellationToken);
             }
 
-            // Updated selector for match elements
-            var matchElements = await page.QuerySelectorAllAsync("[data-testid='event__match']");
+            var matchElements = await page.QuerySelectorAllAsync(MatchRowSelector);
             _logger.LogInformation("Found {MatchCount} matches", matchElements.Length);
 
             foreach (var matchElement in matchElements)
@@ -112,6 +133,11 @@ namespace API.Scrapping.Services
                 }
             }
             
+            // The source redirects /match/{id}/ to a slug URL and now serves the
+            // statistics and lineups as paths off that, not as hash routes, so
+            // the sub-pages are built from where we actually landed.
+            var landedUrl = page.Url;
+
             var matchHeaderData = matchHeaderText.Split(',');
 
             if (matchHeaderData.Length < 6)
@@ -152,7 +178,15 @@ namespace API.Scrapping.Services
                     // Fallback to old selector
                     incidentsData = await match.PopulateData("div.smv__incidentsHeader", page, _logger);
                 }
-                
+                if (incidentsData == null || incidentsData.Count == 0)
+                {
+                    // 2026 markup: the half-time scores moved into the generic
+                    // section headers, so the rows have to be filtered by label.
+                    incidentsData = (await match.PopulateData(HalfHeaderSelector, page, _logger))
+                        .Where(header => header.Contains("HALF", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
+
                 if (incidentsData != null && incidentsData.Count > 0)
                 {
                     var goalsPerFirst = incidentsData.FirstOrDefault()?.Split(',').LastOrDefault()?.Split('-');
@@ -180,21 +214,31 @@ namespace API.Scrapping.Services
             try
             {
                 await Task.Delay(_appConfig.WaitForLoad, cancellationToken);
-                
-                // Updated selector for tournament header
-                var matchRound = await page.EvaluateExpressionAsync("document.querySelector('[data-testid=\"tournamentHeader__country\"]')?.lastChild?.innerHTML || document.querySelector('span.tournamentHeader__country')?.lastChild?.innerHTML");
-                var roundText = matchRound.ToString();
-                if (!string.IsNullOrEmpty(roundText) && roundText.Contains("Round"))
-                {
-                    match.RoundNr = Convert.ToInt32(roundText.Substring(roundText.IndexOf("Round") + 6));
-                }
 
+                // Kick-off time and score come from the header we already read,
+                // so they are set before anything that touches the page again.
                 match.Date = DateTime.ParseExact(matchHeaderData[0].Replace('.', '-'), "dd-MM-yyyy HH:mm", CultureInfo.InvariantCulture);
                 if (matchHeaderData.Length >= 5)
                 {
                     match.Summary.Add(matchHeaderData[2] + matchHeaderData[3] + matchHeaderData[4]);
                 }
-                
+
+                // Round number: current markup first, then the two shapes the
+                // source used before it. Returns null when none of them match,
+                // which is a missing round rather than a failed match.
+                var matchRound = await page.EvaluateExpressionAsync(
+                    "document.querySelector('[data-testid=\"tournamentHeader__country\"]')?.lastChild?.innerHTML" +
+                    " || document.querySelector('span.tournamentHeader__country')?.lastChild?.innerHTML" +
+                    " || document.querySelector('[data-testid=\"wcl-scores-overline-03\"]')?.textContent" +
+                    " || null");
+                var roundText = matchRound?.ToString() ?? string.Empty;
+                var roundNumber = System.Text.RegularExpressions.Regex.Match(
+                    roundText, @"Round\s+(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (roundNumber.Success)
+                {
+                    match.RoundNr = int.Parse(roundNumber.Groups[1].Value);
+                }
+
                 // Updated selector for summary data
                 var summaryData = await match.PopulateData("[data-testid='smv__participantRow']", page, _logger);
                 if (summaryData == null || summaryData.Count == 0)
@@ -214,46 +258,28 @@ namespace API.Scrapping.Services
                 // Continue without summary data
             }
 
-            // Parse stats per half - updated selector
+            // Parse stats: full match, then each half separately
             try
             {
-                var statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/0", "[data-testid='stat__row']", page, _appConfig, _logger);
-                if (statsArr == null || statsArr.Length < 2)
+                var full = await ScrapeStatsAsync(match, page, landedUrl, matchUrl, "summary/stats/overall", "match-statistics/0");
+                if (full.Length >= 2)
                 {
-                    // Fallback to old selector
-                    statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/0", "div.stat__row", page, _appConfig, _logger);
-                }
-                
-                if (statsArr != null && statsArr.Length >= 2)
-                {
-                    match.THome.Stats0 = statsArr[0];
-                    match.TGuest.Stats0 = statsArr[1];
+                    match.THome.Stats0 = full[0];
+                    match.TGuest.Stats0 = full[1];
                 }
 
-                statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/1", "[data-testid='stat__row']", page, _appConfig, _logger);
-                if (statsArr == null || statsArr.Length < 2)
+                var firstHalf = await ScrapeStatsAsync(match, page, landedUrl, matchUrl, "summary/stats/1st-half", "match-statistics/1");
+                if (firstHalf.Length >= 2)
                 {
-                    // Fallback to old selector
-                    statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/1", "div.stat__row", page, _appConfig, _logger);
+                    match.THome.Stats1 = firstHalf[0];
+                    match.TGuest.Stats1 = firstHalf[1];
                 }
-                
-                if (statsArr != null && statsArr.Length >= 2)
+
+                var secondHalf = await ScrapeStatsAsync(match, page, landedUrl, matchUrl, "summary/stats/2nd-half", "match-statistics/2");
+                if (secondHalf.Length >= 2)
                 {
-                    match.THome.Stats1 = statsArr[0];
-                    match.TGuest.Stats1 = statsArr[1];
-                }
-                
-                statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/2", "[data-testid='stat__row']", page, _appConfig, _logger);
-                if (statsArr == null || statsArr.Length < 2)
-                {
-                    // Fallback to old selector
-                    statsArr = await match.PopulateData<Stats>(matchUrl + "match-statistics/2", "div.stat__row", page, _appConfig, _logger);
-                }
-                
-                if (statsArr != null && statsArr.Length >= 2)
-                {
-                    match.THome.Stats2 = statsArr[0];
-                    match.TGuest.Stats2 = statsArr[1];
+                    match.THome.Stats2 = secondHalf[0];
+                    match.TGuest.Stats2 = secondHalf[1];
                 }
             }
             catch (Exception ex)
@@ -266,15 +292,11 @@ namespace API.Scrapping.Services
             try
             {
                 await Task.Delay(_appConfig.OpenPageDelay, cancellationToken);
-                await page.GoToAsync(matchUrl + "match-summary/lineups");
-                await Task.Delay(_appConfig.WaitForLoad, cancellationToken);
-                
-                // Updated selector for lineups
-                var lf = await match.PopulateData<Team>(matchUrl + "lineups", "[data-testid='lf__header']", page, _appConfig, _logger);
+                var lf = await match.PopulateData<Team>(BuildSectionUrl(landedUrl, "summary/lineups"), FormationSelector, page, _appConfig, _logger);
                 if (lf == null || lf.Length < 2)
                 {
-                    // Fallback to old selector
-                    lf = await match.PopulateData<Team>(matchUrl + "lineups", "div.lf__header", page, _appConfig, _logger);
+                    // Fallback to the hash route the source used until 2026
+                    lf = await match.PopulateData<Team>(matchUrl + "lineups", FormationSelector, page, _appConfig, _logger);
                 }
 
                 // Log detailed info about the lf array
@@ -305,6 +327,41 @@ namespace API.Scrapping.Services
             }
 
             return match;
+        }
+
+        /// <summary>
+        /// Reads one statistics period. Tries the current path-based sub-page
+        /// first and falls back to the hash route the source used until 2026, so
+        /// a match that still serves the old shape is not lost.
+        /// </summary>
+        private async Task<Stats[]> ScrapeStatsAsync(Match match, IPage page, string landedUrl, string legacyMatchUrl, string section, string legacySection)
+        {
+            var stats = await match.PopulateData<Stats>(BuildSectionUrl(landedUrl, section), StatRowSelector, page, _appConfig, _logger);
+
+            if (stats == null || stats.Length < 2)
+            {
+                stats = await match.PopulateData<Stats>(legacyMatchUrl + legacySection, StatRowSelector, page, _appConfig, _logger);
+            }
+
+            if (stats == null || stats.Length < 2)
+            {
+                _logger.LogWarning("No statistics found for match {MatchId} section {Section}", match.Id, section);
+                return Array.Empty<Stats>();
+            }
+
+            return stats;
+        }
+
+        /// <summary>
+        /// Builds a sub-page URL from the URL the match page redirected to:
+        /// "/match/football/a/b/?mid=X" plus "summary/stats/overall" becomes
+        /// "/match/football/a/b/summary/stats/overall/?mid=X".
+        /// </summary>
+        internal static string BuildSectionUrl(string landedUrl, string section)
+        {
+            var uri = new Uri(landedUrl);
+            var path = uri.AbsolutePath.TrimEnd('/');
+            return $"{uri.Scheme}://{uri.Host}{path}/{section}/{uri.Query}";
         }
 
         private async Task EnsureTeamExistsAsync(Team team)
