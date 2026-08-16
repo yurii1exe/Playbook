@@ -43,106 +43,106 @@
       // secondHalf: 1,
       // totalScored: 1,
       attacksTotal: {
-        $sum: "$TGuest.Stats0.Attacks",
+        $sum: "$THome.Stats0.Attacks",
       },
       attacksAvg: {
-        $avg: "$TGuest.Stats0.Attacks",
+        $avg: "$THome.Stats0.Attacks",
       },
       dangerousAttacksTotal: {
-        $sum: "$TGuest.Stats0.DangerousAttacks",
+        $sum: "$THome.Stats0.DangerousAttacks",
       },
       dangerousAttacksAvg: {
-        $avg: "$TGuest.Stats0.DangerousAttacks",
+        $avg: "$THome.Stats0.DangerousAttacks",
       },
       goalAttemptsTotal: {
-        $sum: "$TGuest.Stats0.GoalAttempts",
+        $sum: "$THome.Stats0.GoalAttempts",
       },
       goalAttemptsAvg: {
-        $avg: "$TGuest.Stats0.GoalAttempts",
+        $avg: "$THome.Stats0.GoalAttempts",
       },
       shotsOnGoalTotal: {
-        $sum: "$TGuest.Stats0.ShotsOnGoal",
+        $sum: "$THome.Stats0.ShotsOnGoal",
       },
       shotsOnGoalAvg: {
-        $avg: "$TGuest.Stats0.ShotsOnGoal",
+        $avg: "$THome.Stats0.ShotsOnGoal",
       },
       shotsOffGoalTotal: {
-        $sum: "$TGuest.Stats0.ShotsOffGoal",
+        $sum: "$THome.Stats0.ShotsOffGoal",
       },
       shotsOffGoalAvg: {
-        $avg: "$TGuest.Stats0.ShotsOffGoal",
+        $avg: "$THome.Stats0.ShotsOffGoal",
       },
       blockedShotsTotal: {
-        $sum: "$TGuest.Stats0.BlockedShots",
+        $sum: "$THome.Stats0.BlockedShots",
       },
       blockedShotsAvg: {
-        $avg: "$TGuest.Stats0.BlockedShots",
+        $avg: "$THome.Stats0.BlockedShots",
       },
       freeKicksTotal: {
-        $sum: "$TGuest.Stats0.FreeKicks",
+        $sum: "$THome.Stats0.FreeKicks",
       },
       freeKicksAvg: {
-        $avg: "$TGuest.Stats0.FreeKicks",
+        $avg: "$THome.Stats0.FreeKicks",
       },
       cornerKicksTotal: {
-        $sum: "$TGuest.Stats0.CornerKicks",
+        $sum: "$THome.Stats0.CornerKicks",
       },
       cornerKicksAvg: {
-        $avg: "$TGuest.Stats0.CornerKicks",
+        $avg: "$THome.Stats0.CornerKicks",
       },
       offsidesTotal: {
-        $sum: "$TGuest.Stats0.Offsides",
+        $sum: "$THome.Stats0.Offsides",
       },
       offsidesAvg: {
-        $avg: "$TGuest.Stats0.Offsides",
+        $avg: "$THome.Stats0.Offsides",
       },
       throwInTotal: {
-        $sum: "$TGuest.Stats0.ThrowIn",
+        $sum: "$THome.Stats0.ThrowIn",
       },
       throwInAvg: {
-        $avg: "$TGuest.Stats0.ThrowIn",
+        $avg: "$THome.Stats0.ThrowIn",
       },
       foulsTotal: {
-        $sum: "$TGuest.Stats0.Fouls",
+        $sum: "$THome.Stats0.Fouls",
       },
       foulsAvg: {
-        $avg: "$TGuest.Stats0.Fouls",
+        $avg: "$THome.Stats0.Fouls",
       },
       completedPassesTotal: {
-        $sum: "$TGuest.Stats0.CompletedPasses",
+        $sum: "$THome.Stats0.CompletedPasses",
       },
       completedPassesAvg: {
-        $avg: "$TGuest.Stats0.CompletedPasses",
+        $avg: "$THome.Stats0.CompletedPasses",
       },
       totalPassesTotal: {
-        $sum: "$TGuest.Stats0.TotalPasses",
+        $sum: "$THome.Stats0.TotalPasses",
       },
       totalPassesAvg: {
-        $avg: "$TGuest.Stats0.TotalPasses",
+        $avg: "$THome.Stats0.TotalPasses",
       },
       ballPossessionTotal: {
-        $sum: "$TGuest.Stats0.BallPossession",
+        $sum: "$THome.Stats0.BallPossession",
       },
       ballPossessionAvg: {
-        $avg: "$TGuest.Stats0.BallPossession",
+        $avg: "$THome.Stats0.BallPossession",
       },
       yellowCardsTotal: {
-        $sum: "$TGuest.Stats0.YellowCards",
+        $sum: "$THome.Stats0.YellowCards",
       },
       yellowCardsAvg: {
-        $avg: "$TGuest.Stats0.YellowCards",
+        $avg: "$THome.Stats0.YellowCards",
       },
       expectedGoalsTotal: {
-        $sum: "$TGuest.Stats0.ExpectedGoals",
+        $sum: "$THome.Stats0.ExpectedGoals",
       },
       expectedGoalsAvg: {
-        $avg: "$TGuest.Stats0.ExpectedGoals",
+        $avg: "$THome.Stats0.ExpectedGoals",
       },
       goalsFirstHalfTotal: {
-        $sum: "$TGuest.GoalsPerFirst",
+        $sum: "$THome.GoalsPerFirst",
       },
       goalsFirstHalfAvg: {
-        $avg: "$TGuest.GoalsPerFirst",
+        $avg: "$THome.GoalsPerFirst",
       },
     },
   },
