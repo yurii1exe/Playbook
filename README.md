@@ -204,6 +204,30 @@ collection the scraper populated first.
   run needs. Parsing two leagues concurrently takes a per-call
   `IMongoCollection<T>` handle instead.
 
+## Demo media
+
+One recording and two reader-UI captures, in `docs/`. They come from a real run: MongoDB in
+Docker, the worker driving Chrome through the live league page, then the reader UI served from
+`ClientApp` against what the run wrote.
+
+| File | What it shows | Published as |
+|---|---|---|
+| `docs/playbook-demo.gif` | 880×611, 25s. Sixteen leagues loaded from `Data/leagues.json` and the league chosen at the prompt, the worker driving Chrome through the league page, unplayed fixtures rejected from their header alone, and eleven finished MLS matches written to MongoDB | `scraping-run.mp4`, `scraping-run.webm`, the poster `scraping-run.webp`, and the stills `leagues-seeded.webp`, `rejected-fixtures.webp` and `run-summary.webp` |
+| `docs/reader-ui-matches-list.png` | 2560×1050. The reader's Matches page, the league-season selector set to `us_mls_2026` above the matches stored in that collection | `reader-matches-list.webp` |
+| `docs/reader-ui-leagues-list.png` | 2560×942. The reader's Leagues page, rendering the sixteen leagues the worker seeded into MongoDB from `Data/leagues.json` | `reader-leagues-list.webp` |
+
+The published files live in the site repository under
+`TheSite/ClientApp/src/assets/portfolio/resilient-data-pipeline/`, with the card thumbnail
+`playbook-pipeline.webp` one directory above. Provenance runs two ways and this repository holds
+the source for both. The video and its poster are produced from `docs/playbook-demo.gif` with
+ffmpeg — mp4 and webm, a webp poster beside them. The stills are either frames cut from that
+recording or Playwright captures of the reader UI, converted to webp with ffmpeg. Every derivative
+is regenerated rather than edited.
+
+They feed the `resilient-data-pipeline` entry on disit.tech/work, whose case study is at
+`/services/software-development/resilient-data-pipeline`. **The names differ:** the repository is
+`Playbook`, the site entry and its asset folder are `resilient-data-pipeline`.
+
 ## Note
 
 Built to answer questions about publicly published match results. Delays between
